@@ -1,0 +1,7 @@
+spring:
+  datasource:
+    hikari:
+      # The concurrency tests deliberately queue hundreds of callers on a small pool.
+      # They assert on correctness, so waiting must not turn into load shedding.
+      maximum-pool-size: 10
+      connection-timeout: 30000

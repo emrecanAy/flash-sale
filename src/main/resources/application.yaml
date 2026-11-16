@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: flash-sale
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    hikari:
+      # With virtual threads the servlet container no longer caps concurrency, the connection pool does.
+      # A request that cannot get a connection within this window is rejected with 503 instead of queueing.
+      maximum-pool-size: 20
+      connection-timeout: 2000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+  mvc:
+    problemdetails:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+flashsale:
+  reservation:
+    # How long an unpaid order keeps its stock.
+    ttl: 15m
+    sweep-interval: 30s
+    sweep-batch-size: 100

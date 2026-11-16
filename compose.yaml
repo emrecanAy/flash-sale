@@ -1,0 +1,11 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: flashsale
+      POSTGRES_USER: flashsale
+      POSTGRES_PASSWORD: flashsale
+    ports:
+      # Host port is picked by Docker so it never clashes with a local Postgres.
+      # Spring Boot reads the mapped port itself; use `docker compose port postgres 5432` for psql.
+      - "5432"
