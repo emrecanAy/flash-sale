@@ -1,0 +1,39 @@
+### Runnable from IntelliJ IDEA / VS Code REST Client against `./mvnw spring-boot:run`.
+@host = http://localhost:8080
+@customerId = 7f1c1c58-6a55-4c5e-9d5b-2f6f0a6f4b11
+
+### Browse the demo catalogue
+GET {{host}}/api/v1/products
+
+### Add a product with only three units
+POST {{host}}/api/v1/products
+Content-Type: application/json
+
+{
+  "sku": "DROP-001",
+  "name": "Limited sneaker",
+  "price": 1499.90,
+  "initialStock": 3
+}
+
+### Place an order. Send it twice: the second response is 200 with the same order.
+# @name placeOrder
+POST {{host}}/api/v1/orders
+Content-Type: application/json
+Idempotency-Key: checkout-001
+
+{
+  "customerId": "{{customerId}}",
+  "items": [
+    { "productId": 1, "quantity": 1 }
+  ]
+}
+
+### Pay within the reservation window
+POST {{host}}/api/v1/orders/{{placeOrder.response.body.id}}/payment
+
+### ...or cancel and return the stock
+POST {{host}}/api/v1/orders/{{placeOrder.response.body.id}}/cancellation
+
+### Look at the order
+GET {{host}}/api/v1/orders/{{placeOrder.response.body.id}}
