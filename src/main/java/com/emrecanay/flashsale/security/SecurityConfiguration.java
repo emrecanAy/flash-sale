@@ -5,6 +5,7 @@ import static com.emrecanay.flashsale.security.Roles.CUSTOMER;
 import static com.emrecanay.flashsale.security.Roles.OPERATOR;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -29,7 +30,8 @@ class SecurityConfiguration {
 
     @Bean
     SecurityFilterChain apiSecurity(HttpSecurity http,
-            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver problems) throws Exception {
+            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver problems,
+            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer) throws Exception {
         AuthenticationEntryPoint unauthenticated = withProblemBody(new BearerTokenAuthenticationEntryPoint(), problems);
         AccessDeniedHandler forbidden = withProblemBody(new BearerTokenAccessDeniedHandler(), problems);
 
@@ -47,6 +49,13 @@ class SecurityConfiguration {
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(new CustomerTokenConverter()))
+                        // RFC 9728 metadata at /.well-known/oauth-protected-resource, linked from every
+                        // 401 challenge, so a client can discover where to get a token.
+                        .protectedResourceMetadata(metadata -> metadata.protectedResourceMetadataCustomizer(
+                                resource -> resource
+                                        .resourceName("Flash Sale API")
+                                        .authorizationServer(issuer)
+                                        .tlsClientCertificateBoundAccessTokens(false)))
                         .authenticationEntryPoint(unauthenticated)
                         .accessDeniedHandler(forbidden))
                 .exceptionHandling(exceptions -> exceptions
