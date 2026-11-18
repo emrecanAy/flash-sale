@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import com.emrecanay.flashsale.support.IntegrationTest;
 import com.emrecanay.flashsale.support.TestProducts;
+import com.emrecanay.flashsale.support.Tokens;
 import com.jayway.jsonpath.JsonPath;
 
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @IntegrationTest
 class OrderApiTest {
@@ -23,6 +25,8 @@ class OrderApiTest {
 
     @Autowired
     TestProducts products;
+
+    final RequestPostProcessor customer = Tokens.customer();
 
     @Test
     void anOrderIsPlacedReplayedAndPaidOverHttp() throws Exception {
@@ -39,10 +43,10 @@ class OrderApiTest {
         assertThat(replayed).hasStatusOk();
         assertThat(replayed).bodyJson().extractingPath("$.id").isEqualTo(orderId);
 
-        assertThat(mvc.post().uri("/api/v1/orders/{id}/payment", orderId))
+        assertThat(mvc.post().uri("/api/v1/orders/{id}/payment", orderId).with(customer))
                 .hasStatusOk()
                 .bodyJson().extractingPath("$.status").isEqualTo("PAID");
-        assertThat(mvc.get().uri("/api/v1/orders/{id}", orderId))
+        assertThat(mvc.get().uri("/api/v1/orders/{id}", orderId).with(customer))
                 .hasStatusOk()
                 .bodyJson().extractingPath("$.items[0].quantity").isEqualTo(2);
     }
@@ -61,10 +65,9 @@ class OrderApiTest {
     @Test
     void reusingAnIdempotencyKeyForADifferentOrderIsUnprocessable() {
         long productId = products.createWithStock(5);
-        UUID customerId = UUID.randomUUID();
-        placeOrder("key-3", orderFor(customerId, productId, 1));
+        placeOrder("key-3", orderFor(productId, 1));
 
-        MvcTestResult result = placeOrder("key-3", orderFor(customerId, productId, 2));
+        MvcTestResult result = placeOrder("key-3", orderFor(productId, 2));
 
         assertThat(result).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("idempotency_key_reused");
@@ -73,11 +76,11 @@ class OrderApiTest {
     @Test
     void invalidRequestsAreRejectedWithFieldLevelDetails() {
         MvcTestResult result = placeOrder("key-4", """
-                {"customerId": null, "items": []}
+                {"items": [{"productId": null, "quantity": 0}]}
                 """);
 
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
-        assertThat(result).bodyJson().hasPath("$.errors.customerId").hasPath("$.errors.items");
+        assertThat(result).bodyJson().hasPath("$.errors['items[0].productId']").hasPath("$.errors['items[0].quantity']");
     }
 
     @Test
@@ -91,6 +94,7 @@ class OrderApiTest {
     @Test
     void theIdempotencyKeyHeaderIsMandatory() {
         assertThat(mvc.post().uri("/api/v1/orders")
+                .with(customer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(orderFor(1, 1)))
                 .hasStatus(HttpStatus.BAD_REQUEST);
@@ -98,13 +102,14 @@ class OrderApiTest {
 
     @Test
     void unknownOrdersAreNotFound() {
-        assertThat(mvc.get().uri("/api/v1/orders/{id}", UUID.randomUUID()))
+        assertThat(mvc.get().uri("/api/v1/orders/{id}", UUID.randomUUID()).with(customer))
                 .hasStatus(HttpStatus.NOT_FOUND)
                 .bodyJson().extractingPath("$.code").isEqualTo("order_not_found");
     }
 
     private MvcTestResult placeOrder(String idempotencyKey, String body) {
         return mvc.post().uri("/api/v1/orders")
+                .with(customer)
                 .header("Idempotency-Key", idempotencyKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body)
@@ -112,12 +117,8 @@ class OrderApiTest {
     }
 
     private static String orderFor(long productId, int quantity) {
-        return orderFor(UUID.randomUUID(), productId, quantity);
-    }
-
-    private static String orderFor(UUID customerId, long productId, int quantity) {
         return """
-                {"customerId": "%s", "items": [{"productId": %d, "quantity": %d}]}
-                """.formatted(customerId, productId, quantity);
+                {"items": [{"productId": %d, "quantity": %d}]}
+                """.formatted(productId, quantity);
     }
 }

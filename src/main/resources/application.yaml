@@ -21,6 +21,23 @@ spring:
       enabled: true
   lifecycle:
     timeout-per-shutdown-phase: 20s
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # The Keycloak realm that signs access tokens. Its signing keys are fetched from the realm's
+          # published JWKS on first use and refreshed when a token names a new key. There is no default:
+          # without FLASHSALE_ISSUER_URI the service does not start.
+          issuer-uri: ${FLASHSALE_ISSUER_URI}
+          # Only tokens issued for this API are accepted, not any token the realm has signed.
+          audiences: flash-sale-api
+
+springdoc:
+  swagger-ui:
+    oauth:
+      client-id: flash-sale-swagger
+      use-pkce-with-authorization-code-grant: true
+      scopes: openid
 
 management:
   endpoints:

@@ -9,3 +9,24 @@ services:
       # Host port is picked by Docker so it never clashes with a local Postgres.
       # Spring Boot reads the mapped port itself; use `docker compose port postgres 5432` for psql.
       - "5432"
+
+  # Signs the access tokens. The realm (roles, Swagger UI client, demo accounts) is imported from deploy/keycloak.
+  # Admin console: http://localhost:8180/admin (admin / admin). Development mode: plain HTTP, data kept inside the container.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./deploy/keycloak:/opt/keycloak/data/import:ro
+    ports:
+      # Fixed, because the issuer in every token is http://localhost:8180/realms/flash-sale.
+      - "8180:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
