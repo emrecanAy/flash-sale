@@ -43,9 +43,20 @@ class AccessRulesTest {
                 .exchange();
 
         assertThat(result).hasStatus(HttpStatus.UNAUTHORIZED)
-                .hasContentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
-                .headers().hasValue(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("unauthorized");
+        // RFC 9728: the challenge points clients at the metadata that names the authorization server.
+        assertThat(result.getResponse().getHeader(HttpHeaders.WWW_AUTHENTICATE))
+                .startsWith("Bearer")
+                .contains("resource_metadata=");
+    }
+
+    @Test
+    void theProtectedResourceMetadataNamesKeycloakAsTheAuthorizationServer() {
+        assertThat(mvc.get().uri("/.well-known/oauth-protected-resource"))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.authorization_servers[0]")
+                .isEqualTo("http://localhost:1/realms/flash-sale");
     }
 
     @Test
