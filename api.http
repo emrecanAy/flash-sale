@@ -1,12 +1,14 @@
-### Runnable from IntelliJ IDEA / VS Code REST Client against `./mvnw spring-boot:run`.
+### Runnable from the IntelliJ IDEA HTTP Client against `./mvnw spring-boot:run`.
+### Sign-in uses the authorization code flow with PKCE (configured in http-client.env.json): the first request
+### that needs a token opens Keycloak's login page. Demo accounts are listed in the README.
 @host = http://localhost:8080
-@customerId = 7f1c1c58-6a55-4c5e-9d5b-2f6f0a6f4b11
 
-### Browse the demo catalogue
+### Browse the demo catalogue (no sign-in needed)
 GET {{host}}/api/v1/products
 
-### Add a product with only three units
+### Add a product with only three units. Sign in as mira@flash-sale.local (catalog-manager).
 POST {{host}}/api/v1/products
+Authorization: Bearer {{$auth.token("catalog-manager")}}
 Content-Type: application/json
 
 {
@@ -16,14 +18,14 @@ Content-Type: application/json
   "initialStock": 3
 }
 
-### Place an order. Send it twice: the second response is 200 with the same order.
+### Place an order. Sign in as alice@flash-sale.local (customer). Send it twice: the second response is 200 with the same order.
 # @name placeOrder
 POST {{host}}/api/v1/orders
+Authorization: Bearer {{$auth.token("customer")}}
 Content-Type: application/json
 Idempotency-Key: checkout-001
 
 {
-  "customerId": "{{customerId}}",
   "items": [
     { "productId": 1, "quantity": 1 }
   ]
@@ -31,9 +33,18 @@ Idempotency-Key: checkout-001
 
 ### Pay within the reservation window
 POST {{host}}/api/v1/orders/{{placeOrder.response.body.id}}/payment
+Authorization: Bearer {{$auth.token("customer")}}
 
 ### ...or cancel and return the stock
 POST {{host}}/api/v1/orders/{{placeOrder.response.body.id}}/cancellation
+Authorization: Bearer {{$auth.token("customer")}}
 
 ### Look at the order
 GET {{host}}/api/v1/orders/{{placeOrder.response.body.id}}
+Authorization: Bearer {{$auth.token("customer")}}
+
+### Without a token: 401, and the challenge points at the metadata below
+GET {{host}}/api/v1/orders/{{placeOrder.response.body.id}}
+
+### Where to get a token (RFC 9728)
+GET {{host}}/.well-known/oauth-protected-resource
