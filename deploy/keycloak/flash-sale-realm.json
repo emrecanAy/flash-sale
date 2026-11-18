@@ -1,0 +1,126 @@
+{
+  "realm": "flash-sale",
+  "displayName": "Flash Sale",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "rememberMe": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "passwordPolicy": "length(12) and maxLength(128) and notUsername and notEmail",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "roles": {
+    "realm": [
+      {
+        "name": "customer",
+        "description": "Places, pays for and cancels their own orders"
+      },
+      {
+        "name": "catalog-manager",
+        "description": "Creates products and adds stock"
+      },
+      {
+        "name": "operator",
+        "description": "Reads metrics through the actuator"
+      },
+      {
+        "name": "default-roles-flash-sale",
+        "description": "Given to every new account, including self-registered ones",
+        "composite": true,
+        "composites": {
+          "realm": ["customer"]
+        }
+      }
+    ]
+  },
+  "defaultRole": {
+    "name": "default-roles-flash-sale"
+  },
+  "clients": [
+    {
+      "clientId": "flash-sale-swagger",
+      "name": "Flash Sale Swagger UI",
+      "description": "Public browser client: authorization code flow with PKCE, no secret, no password grant",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:8080/swagger-ui/oauth2-redirect.html"],
+      "webOrigins": ["http://localhost:8080"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8080/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "flash-sale-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "flash-sale-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice@flash-sale.local",
+      "email": "alice@flash-sale.local",
+      "firstName": "Alice",
+      "lastName": "Demir",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "flash-sale-demo-2026", "temporary": false }],
+      "realmRoles": ["default-roles-flash-sale"]
+    },
+    {
+      "username": "bob@flash-sale.local",
+      "email": "bob@flash-sale.local",
+      "firstName": "Bob",
+      "lastName": "Kaya",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "flash-sale-demo-2026", "temporary": false }],
+      "realmRoles": ["default-roles-flash-sale"]
+    },
+    {
+      "username": "mira@flash-sale.local",
+      "email": "mira@flash-sale.local",
+      "firstName": "Mira",
+      "lastName": "Aksoy",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "flash-sale-demo-2026", "temporary": false }],
+      "realmRoles": ["catalog-manager"]
+    },
+    {
+      "username": "ops@flash-sale.local",
+      "email": "ops@flash-sale.local",
+      "firstName": "Ops",
+      "lastName": "Team",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "flash-sale-demo-2026", "temporary": false }],
+      "realmRoles": ["operator"]
+    }
+  ]
+}

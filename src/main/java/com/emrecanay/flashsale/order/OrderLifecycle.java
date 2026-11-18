@@ -28,24 +28,25 @@ class OrderLifecycle {
         this.clock = clock;
     }
 
+    /** Another customer's order is reported as not found, so order ids cannot be probed. */
     @Transactional(readOnly = true)
-    OrderResponse get(UUID orderId) {
-        return orders.findById(orderId)
+    OrderResponse get(UUID orderId, UUID customerId) {
+        return orders.findByIdAndCustomerId(orderId, customerId)
                 .map(OrderResponse::from)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
     }
 
     /** Payment itself is simulated; what matters here is that it cannot race a cancel or an expiry. */
     @Transactional
-    OrderResponse pay(UUID orderId) {
-        Order order = lock(orderId);
+    OrderResponse pay(UUID orderId, UUID customerId) {
+        Order order = lock(orderId, customerId);
         order.pay(clock.instant());
         return OrderResponse.from(order);
     }
 
     @Transactional
-    OrderResponse cancel(UUID orderId) {
-        Order order = lock(orderId);
+    OrderResponse cancel(UUID orderId, UUID customerId) {
+        Order order = lock(orderId, customerId);
         order.cancel();
         inventory.release(order.quantitiesByProductId());
         return OrderResponse.from(order);
@@ -71,7 +72,7 @@ class OrderLifecycle {
         return overdue.size();
     }
 
-    private Order lock(UUID orderId) {
-        return orders.findWithLockById(orderId).orElseThrow(() -> new OrderNotFoundException(orderId));
+    private Order lock(UUID orderId, UUID customerId) {
+        return orders.findWithLockByIdAndCustomerId(orderId, customerId).orElseThrow(() -> new OrderNotFoundException(orderId));
     }
 }

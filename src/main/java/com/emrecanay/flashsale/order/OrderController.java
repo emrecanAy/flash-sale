@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import com.emrecanay.flashsale.security.CurrentCustomer;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+/** Every operation acts on the signed-in customer's own orders; anyone else's look like they do not exist. */
 @RestController
 @RequestMapping("/api/v1/orders")
 class OrderController {
@@ -32,9 +35,10 @@ class OrderController {
     /** 201 for a new order, 200 when the same request was already processed and is being replayed. */
     @PostMapping
     ResponseEntity<OrderResponse> place(
+            @CurrentCustomer UUID customerId,
             @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 64) String idempotencyKey,
             @Valid @RequestBody PlaceOrderRequest request) {
-        OrderPlacement.Result result = placement.place(request.customerId(), idempotencyKey,
+        OrderPlacement.Result result = placement.place(customerId, idempotencyKey,
                 request.quantitiesByProductId());
         if (result.replayed()) {
             return ResponseEntity.ok(result.order());
@@ -47,17 +51,17 @@ class OrderController {
     }
 
     @GetMapping("/{orderId}")
-    OrderResponse get(@PathVariable UUID orderId) {
-        return lifecycle.get(orderId);
+    OrderResponse get(@PathVariable UUID orderId, @CurrentCustomer UUID customerId) {
+        return lifecycle.get(orderId, customerId);
     }
 
     @PostMapping("/{orderId}/payment")
-    OrderResponse pay(@PathVariable UUID orderId) {
-        return lifecycle.pay(orderId);
+    OrderResponse pay(@PathVariable UUID orderId, @CurrentCustomer UUID customerId) {
+        return lifecycle.pay(orderId, customerId);
     }
 
     @PostMapping("/{orderId}/cancellation")
-    OrderResponse cancel(@PathVariable UUID orderId) {
-        return lifecycle.cancel(orderId);
+    OrderResponse cancel(@PathVariable UUID orderId, @CurrentCustomer UUID customerId) {
+        return lifecycle.cancel(orderId, customerId);
     }
 }

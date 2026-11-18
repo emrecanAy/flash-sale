@@ -15,13 +15,16 @@ interface OrderRepository extends JpaRepository<Order, UUID> {
 
     Optional<Order> findByCustomerIdAndIdempotencyKey(UUID customerId, String idempotencyKey);
 
+    Optional<Order> findByIdAndCustomerId(UUID id, UUID customerId);
+
     /**
      * Loads the order and holds its row lock until the transaction ends. Every state change goes
      * through here, so "pay" racing "cancel" or the sweeper is decided by whoever gets the lock
-     * first, and the loser sees the final state instead of acting on a stale one.
+     * first, and the loser sees the final state instead of acting on a stale one. Only the owner's
+     * order is found, so another customer's id never takes the lock.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<Order> findWithLockById(UUID id);
+    Optional<Order> findWithLockByIdAndCustomerId(UUID id, UUID customerId);
 
     /**
      * Claims a batch of overdue reservations. {@code SKIP LOCKED} lets several application

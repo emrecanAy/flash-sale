@@ -5,3 +5,10 @@ spring:
       # They assert on correctness, so waiting must not turn into load shedding.
       maximum-pool-size: 10
       connection-timeout: 30000
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Never contacted: most tests sign in with spring-security-test's jwt(), which skips decoding.
+          # KeycloakSecurityTest points this at a real Keycloak.
+          issuer-uri: http://localhost:1/realms/flash-sale

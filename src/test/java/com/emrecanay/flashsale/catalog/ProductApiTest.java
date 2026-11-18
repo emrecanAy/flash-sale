@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.UUID;
 
 import com.emrecanay.flashsale.support.IntegrationTest;
+import com.emrecanay.flashsale.support.Tokens;
 import com.jayway.jsonpath.JsonPath;
 
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,7 @@ class ProductApiTest {
         int productId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
 
         assertThat(mvc.post().uri("/api/v1/products/{id}/restock", productId)
+                .with(Tokens.catalogManager())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"quantity": 7}
@@ -49,6 +51,7 @@ class ProductApiTest {
     @Test
     void restockingAnUnknownProductIsNotFound() {
         assertThat(mvc.post().uri("/api/v1/products/{id}/restock", Long.MAX_VALUE)
+                .with(Tokens.catalogManager())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"quantity": 1}
@@ -58,6 +61,7 @@ class ProductApiTest {
 
     private MvcTestResult createProduct(String sku, int initialStock) {
         return mvc.post().uri("/api/v1/products")
+                .with(Tokens.catalogManager())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"sku": "%s", "name": "Limited sneaker", "price": 1499.90, "initialStock": %d}

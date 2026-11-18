@@ -35,12 +35,15 @@ class OrderLifecycleTest {
     @Autowired
     TestProducts products;
 
+    /** JUnit makes a new instance per test, so every test has its own customer. */
+    final UUID customer = UUID.randomUUID();
+
     @Test
     void cancellingAPendingOrderPutsItsStockBackOnSale() {
         long productId = products.createWithStock(3);
         UUID orderId = placeOrder(productId, 2);
 
-        OrderResponse cancelled = lifecycle.cancel(orderId);
+        OrderResponse cancelled = lifecycle.cancel(orderId, customer);
 
         assertThat(cancelled.status()).isEqualTo(OrderStatus.CANCELLED);
         assertThat(products.stockOf(productId)).isEqualTo(3);
@@ -53,7 +56,7 @@ class OrderLifecycleTest {
         UUID orderId = placeOrder(productId, 2);
         Callable<Boolean> cancel = () -> {
             try {
-                lifecycle.cancel(orderId);
+                lifecycle.cancel(orderId, customer);
                 return true;
             }
             catch (OrderNotPendingException alreadyCancelled) {
@@ -76,10 +79,10 @@ class OrderLifecycleTest {
         long productId = products.createWithStock(3);
         UUID orderId = placeOrder(productId, 1);
 
-        lifecycle.pay(orderId);
+        lifecycle.pay(orderId, customer);
 
-        assertThatThrownBy(() -> lifecycle.cancel(orderId)).isInstanceOf(OrderNotPendingException.class);
-        assertThat(lifecycle.get(orderId).status()).isEqualTo(OrderStatus.PAID);
+        assertThatThrownBy(() -> lifecycle.cancel(orderId, customer)).isInstanceOf(OrderNotPendingException.class);
+        assertThat(lifecycle.get(orderId, customer).status()).isEqualTo(OrderStatus.PAID);
         assertThat(products.stockOf(productId)).isEqualTo(2);
     }
 
@@ -88,12 +91,12 @@ class OrderLifecycleTest {
         long productId = products.createWithStock(5);
         UUID unpaid = placeOrder(productId, 2);
         UUID paid = placeOrder(productId, 1);
-        lifecycle.pay(paid);
+        lifecycle.pay(paid, customer);
 
         sweepAsOf(afterReservationWindow());
 
-        assertThat(lifecycle.get(unpaid).status()).isEqualTo(OrderStatus.EXPIRED);
-        assertThat(lifecycle.get(paid).status()).isEqualTo(OrderStatus.PAID);
+        assertThat(lifecycle.get(unpaid, customer).status()).isEqualTo(OrderStatus.EXPIRED);
+        assertThat(lifecycle.get(paid, customer).status()).isEqualTo(OrderStatus.PAID);
         assertThat(products.stockOf(productId)).isEqualTo(4);
     }
 
@@ -104,7 +107,7 @@ class OrderLifecycleTest {
 
         sweepAsOf(Instant.now());
 
-        assertThat(lifecycle.get(orderId).status()).isEqualTo(OrderStatus.PENDING);
+        assertThat(lifecycle.get(orderId, customer).status()).isEqualTo(OrderStatus.PENDING);
         assertThat(products.stockOf(productId)).isZero();
     }
 
@@ -114,11 +117,26 @@ class OrderLifecycleTest {
         UUID orderId = placeOrder(productId, 1);
         sweepAsOf(afterReservationWindow());
 
-        assertThatThrownBy(() -> lifecycle.pay(orderId)).isInstanceOf(OrderNotPendingException.class);
+        assertThatThrownBy(() -> lifecycle.pay(orderId, customer)).isInstanceOf(OrderNotPendingException.class);
+    }
+
+    /** The lookup is by order id and owner together, so a stranger cannot lock the row, let alone change it. */
+    @Test
+    void anotherCustomerCannotSeePayOrCancelTheOrder() {
+        long productId = products.createWithStock(3);
+        UUID orderId = placeOrder(productId, 2);
+        UUID stranger = UUID.randomUUID();
+
+        assertThatThrownBy(() -> lifecycle.get(orderId, stranger)).isInstanceOf(OrderNotFoundException.class);
+        assertThatThrownBy(() -> lifecycle.pay(orderId, stranger)).isInstanceOf(OrderNotFoundException.class);
+        assertThatThrownBy(() -> lifecycle.cancel(orderId, stranger)).isInstanceOf(OrderNotFoundException.class);
+
+        assertThat(lifecycle.get(orderId, customer).status()).isEqualTo(OrderStatus.PENDING);
+        assertThat(products.stockOf(productId)).isEqualTo(1);
     }
 
     private UUID placeOrder(long productId, int quantity) {
-        return placement.place(UUID.randomUUID(), UUID.randomUUID().toString(), Map.of(productId, quantity))
+        return placement.place(customer, UUID.randomUUID().toString(), Map.of(productId, quantity))
                 .order().id();
     }
 
